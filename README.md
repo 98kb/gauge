@@ -4,7 +4,7 @@
 
 **Pre-planning engagement and routing skill for AI-native software engineering.**
 
-*Right-sized planning for agentic workflows — prevent both under-planning and ritualistic over-planning.*
+*Stop over-planning 2-line fixes. Stop under-planning auth migrations.*
 
 [![Skills](https://img.shields.io/badge/skills-98kb%2Fgauge-blue?style=flat-square&logo=npm)](https://github.com/98kb/gauge)
 [![Inspect AI](https://img.shields.io/badge/evals-Inspect%20AI%20(14%20scenarios)-success?style=flat-square&logo=python)](evals/inspect-ai/README.md)
