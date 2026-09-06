@@ -2,9 +2,14 @@
 
 # 📐 Gauge
 
-**Pre-planning engagement and routing skill for AI-native software engineering.**
+<h1 align="center">
+  Stop over-planning 2-line fixes.<br />
+  Stop under-planning auth migrations.
+</h1>
 
-*Stop over-planning 2-line fixes. Stop under-planning auth migrations.*
+<p align="center">
+  <strong>Pre-planning engagement and routing skill for AI-native software engineering.</strong>
+</p>
 
 [![Skills](https://img.shields.io/badge/skills-98kb%2Fgauge-blue?style=flat-square&logo=npm)](https://github.com/98kb/gauge)
 [![Inspect AI](https://img.shields.io/badge/evals-Inspect%20AI%20(14%20scenarios)-success?style=flat-square&logo=python)](evals/inspect-ai/README.md)
