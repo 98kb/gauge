@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "skills": {
+    "domain-modeling": { "source": "mattpocock/skills", "sourceType": "github" },
+    "grilling": { "source": "mattpocock/skills", "sourceType": "github" },
+    "grill-with-docs": { "source": "mattpocock/skills", "sourceType": "github" },
+    "handoff": { "source": "mattpocock/skills", "sourceType": "github" },
+    "prototype": { "source": "mattpocock/skills", "sourceType": "github" },
+    "research": { "source": "mattpocock/skills", "sourceType": "github" },
+    "setup-matt-pocock-skills": { "source": "mattpocock/skills", "sourceType": "github" },
+    "to-spec": { "source": "mattpocock/skills", "sourceType": "github" },
+    "to-tickets": { "source": "mattpocock/skills", "sourceType": "github" },
+    "wayfinder": { "source": "mattpocock/skills", "sourceType": "github" }
+  }
+}

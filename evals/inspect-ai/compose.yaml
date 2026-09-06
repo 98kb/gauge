@@ -1,0 +1,15 @@
+# Sandbox for the skill evals.
+#
+# Deliberately spare: a shell, coreutils and nothing else. Gauge is a read-only
+# routing skill, so the sandbox needs enough of a filesystem for reconnaissance
+# and nothing more. Networking is off, which both keeps the eval hermetic and
+# makes "opens no tracker issue" true by construction as well as by grading.
+services:
+  default:
+    image: debian:bookworm-slim
+    working_dir: /workspace
+    command: ["sleep", "infinity"]
+    init: true
+    network_mode: none
+    cpus: 1.0
+    mem_limit: 1gb

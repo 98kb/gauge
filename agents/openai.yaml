@@ -1,0 +1,6 @@
+interface:
+  display_name: "Gauge"
+  short_description: "Turn intent into an executable planning recipe"
+  default_prompt: "Use $gauge to assess this intent and produce an executable planning recipe."
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,130 @@
+name: skill evals
+
+# Split deliberately. The offline half is free, fast, needs no secrets and
+# catches the regressions that actually recur — a broken skill adapter, a
+# malformed case, a scorer that quietly stopped being able to fail. The
+# model-backed half costs money, so it runs on main and nightly rather than on
+# every push, and never for a fork.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      epochs:
+        description: "Epochs for the full suite"
+        default: "3"
+
+defaults:
+  run:
+    working-directory: evals/inspect-ai
+
+jobs:
+  check:
+    name: offline checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: ./run.sh setup
+      - name: types, case contracts, positive and negative controls
+        run: ./run.sh check
+
+      # Runs one whole sample through the real sandbox with a scripted model:
+      # proves the skill adapter, the fixture copy, the snapshots and all five
+      # scorers still work end to end, without spending a token.
+      - name: sandbox smoke (scripted model)
+        run: ./run.sh check:docker
+
+  smoke:
+    name: gauge smoke
+    needs: check
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      HAS_MODEL_ACCESS: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: ./run.sh setup
+
+      - name: skip loudly when no model access is configured
+        if: env.HAS_MODEL_ACCESS != 'true'
+        run: |
+          echo "::warning::ANTHROPIC_API_KEY is not set — the model-backed evals did not run."
+          echo "Set the secret to enable them; see evals/inspect-ai/README.md." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: smoke suite
+        if: env.HAS_MODEL_ACCESS == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          INSPECT_EVAL_MODEL: ${{ vars.INSPECT_EVAL_MODEL || 'anthropic/claude-sonnet-5' }}
+        run: ./run.sh smoke --display plain
+
+      # Exit 3 means "no gate breached, but a baseline is still owed" — the
+      # state the repo is in until someone records a first real run and sets
+      # thresholds. Surfaced as an annotation rather than a red build, so the
+      # pipeline is not failing by construction; a breached gate (exit 1) or an
+      # unreadable log (exit 2) still fails.
+      - name: quality gates
+        if: env.HAS_MODEL_ACCESS == 'true'
+        run: |
+          set +e
+          ./run.sh gate | tee -a "$GITHUB_STEP_SUMMARY"
+          code=${PIPESTATUS[0]}
+          if [ "$code" -eq 3 ]; then
+            echo "::warning::No quality-gate baseline is recorded yet — see evals/inspect-ai/gates.json"
+            exit 0
+          fi
+          exit "$code"
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() && env.HAS_MODEL_ACCESS == 'true' }}
+        with:
+          name: gauge-smoke-logs
+          path: evals/inspect-ai/logs/
+
+  full:
+    name: gauge full suite
+    needs: check
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      HAS_MODEL_ACCESS: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: ./run.sh setup
+
+      - name: full suite, repeated
+        if: env.HAS_MODEL_ACCESS == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          INSPECT_EVAL_MODEL: ${{ vars.INSPECT_EVAL_MODEL || 'anthropic/claude-sonnet-5' }}
+        run: ./run.sh gauge --epochs ${{ inputs.epochs || 3 }} --display plain
+
+      # Exit 3 means "no gate breached, but a baseline is still owed" — the
+      # state the repo is in until someone records a first real run and sets
+      # thresholds. Surfaced as an annotation rather than a red build, so the
+      # pipeline is not failing by construction; a breached gate (exit 1) or an
+      # unreadable log (exit 2) still fails.
+      - name: quality gates
+        if: env.HAS_MODEL_ACCESS == 'true'
+        run: |
+          set +e
+          ./run.sh gate | tee -a "$GITHUB_STEP_SUMMARY"
+          code=${PIPESTATUS[0]}
+          if [ "$code" -eq 3 ]; then
+            echo "::warning::No quality-gate baseline is recorded yet — see evals/inspect-ai/gates.json"
+            exit 0
+          fi
+          exit "$code"
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() && env.HAS_MODEL_ACCESS == 'true' }}
+        with:
+          name: gauge-full-logs
+          path: evals/inspect-ai/logs/

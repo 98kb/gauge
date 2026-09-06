@@ -1,0 +1,3 @@
+This directory is intentionally empty: the inventory is readable and holds no
+skills, which is what the planning registry calls `not detected`. Without the
+directory the case would silently become `unknown` and grade something else.
