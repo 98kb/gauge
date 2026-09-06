@@ -33,12 +33,26 @@ npx skills add 98kb/gauge
 
 Compatible with Claude Code, Cursor, Windsurf, Codex, Gemini CLI / Antigravity, and any runtime supporting the open Agent Skills standard.
 
-### Triggering Gauge
+### Invoking Gauge
 
-Invoke Gauge when scoping or framing a task before diving into code:
+Gauge explicitly requires human invocation (`disable-model-invocation: true` / `allow_implicit_invocation: false`)—models cannot trigger it autonomously. Run it directly as a slash command when sizing up an effort before planning or implementing:
 
-> *"Gauge this task: Add multi-tenant team invitations with role assignments."*  
-> *"Gauge whether we need a spec before touching the payment webhook handler."*
+```text
+# High-consequence architecture & boundaries
+/gauge the effort required to replace payment gateway
+/gauge updating token-expiry handling at the auth boundary
+
+# Domain & product features
+/gauge an audit logging module with tenant isolation
+/gauge team invites with custom RBAC permissions
+
+# Multi-session or exploratory work
+/gauge a multi-session notification engine overhaul
+/gauge whether we need a spike before integrating third-party webhooks
+
+# Bounded fixes & conventional tasks
+/gauge updating the checkout CTA label and styling
+```
 
 ---
 
