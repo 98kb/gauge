@@ -20,6 +20,12 @@ Carried over from [98kb/skills](https://github.com/98kb/skills) because gauge ad
 | [0003](0003-eval-grading-is-deterministic-plus-llm-judge-split.md) | Eval grading splits deterministic checks from LLM-as-judge rubric grading |
 | [0016](0016-a-phase-number-forward-references-a-map-that-does-not-exist.md) | A phase number is a forward reference to a map that does not exist |
 
+## Gauge
+
+| ADR | Decision |
+| --- | --- |
+| [0017](0017-model-profiles-are-single-advisory-and-capability-bound.md) | Model profiles are single, advisory, and capability-bound |
+
 ## How gauge adopts 0002 and 0003
 
 `gauge` adopts both, and neither adoption is carried by an ADR of its own:
