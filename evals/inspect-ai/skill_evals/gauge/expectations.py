@@ -243,6 +243,33 @@ def _confidence_at_most(value: Any, outcome: Outcome) -> list[Check]:
     ]
 
 
+def _runtime_unavailable(value: Any, outcome: Outcome) -> list[Check]:
+    """The named capability's boundary reports `unavailable`.
+
+    Only a case can assert this: whether a runtime cannot honour a profile is
+    a fact about the fixture, which the standing contract never sees. The
+    contract's own checks already require the exact profile to be kept and the
+    evidence to be named.
+    """
+    checks: list[Check] = []
+    for capability in value:
+        matching = [
+            boundary
+            for boundary in outcome.recipe.boundaries
+            if boundary.capability == capability.lower()
+        ]
+        checks.append(
+            Check(
+                f"case/runtime-unavailable:{capability}",
+                any(boundary.runtime == "unavailable" for boundary in matching),
+                f"runtime labels: {[boundary.runtime for boundary in matching]}"
+                if matching
+                else f"no boundary carries capability {capability!r}",
+            )
+        )
+    return checks
+
+
 CATALOGUE: dict[str, ExpectationCheck] = {
     "topology": _topology,
     "variant": _variant,
@@ -255,6 +282,7 @@ CATALOGUE: dict[str, ExpectationCheck] = {
     "installation_section": _installation_section,
     "gauge_invoked": _gauge_invoked,
     "confidence_at_most": _confidence_at_most,
+    "runtime_unavailable": _runtime_unavailable,
 }
 
 VALIDATORS: dict[str, Callable[[str, Any], None]] = {
@@ -270,4 +298,5 @@ VALIDATORS: dict[str, Callable[[str, Any], None]] = {
     # Both branches assert: `false` is negative routing, not a no-op.
     "gauge_invoked": _boolean,
     "confidence_at_most": _one_of(CONFIDENCE_ORDER),
+    "runtime_unavailable": _nonempty_strings,
 }

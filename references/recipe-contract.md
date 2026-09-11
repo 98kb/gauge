@@ -25,9 +25,13 @@ The shape of every Gauge result. Wording may vary; a field that is relevant is n
 ## Resolved planning recipe
 
 ### Step 1 — <purpose>
+- Capability: <capability from the routing model, or the missing one>
 - Skill: <canonical skill | No planning skill | No registry match: <missing capability>>
 - Dependencies: <expanded list, or none>
 - Availability: <installed | not detected | unknown | n/a>
+- Model: <canonical pinned model ID | No model registry match: <binding key>>
+- Reasoning effort: <the profile's one reasoning-effort value | n/a on a model registry gap>
+- Runtime availability: <unavailable: <named local evidence> | unknown | n/a on a model registry gap>
 - Invocation: <exact user action in this harness, or the orchestration action>
 - Inputs: <the intent and the artifacts this step receives>
 - Expected output: <artifact and where it lands>
@@ -45,7 +49,12 @@ The shape of every Gauge result. Wording may vary; a field that is relevant is n
 <Present only when a bound skill is `not detected` or `unknown`: the route from the registry, every dependency, and the official source. Omitted otherwise.>
 
 ## Implementation handoff
-<What the implementation agent receives, from which step, and how it is launched.>
+- Capability: implementation
+- Model: <canonical pinned model ID | No model registry match: <binding key>>
+- Reasoning effort: <the profile's one reasoning-effort value | n/a on a model registry gap>
+- Runtime availability: <unavailable: <named local evidence> | unknown | n/a on a model registry gap>
+
+<What the implementation agent receives, from which step, and how it is launched. In G0, the one line pointing at the implementation step, with no fields.>
 
 ## Escalate or re-Gauge if
 - <observable trigger the executing agent can detect>
@@ -116,12 +125,20 @@ Stop and report if:
 **G0 recipe.** The recipe stays executable without a planning skill:
 
 - `Topology: G0 Direct`;
-- `Skill: No planning skill`;
+- `Skill: No planning skill`, on a step whose `Capability` is `implementation` and which carries that capability's model profile;
 - one implementation launch packet;
 - the verification expectation; and
 - the escalation triggers.
 
-No spec or handoff step is inserted for ceremony.
+No spec or handoff step is inserted for ceremony, and the **Implementation handoff** section carries no boundary fields, since the step already does.
+
+**Model profiles.** Every execution boundary carries `Capability`, `Model`, `Reasoning effort`, and `Runtime availability`. The boundaries are a tracker-setup step when present, every planning step, and the G0 implementation step. In G1 to G3 they also include the **Implementation handoff**, whose capability is `implementation` and whose one profile G3 implementation sessions share. Dependencies and installation actions carry no profile. Each boundary resolves exactly one profile from [model-registry.md](model-registry.md), by its capability, plus `High-assurance` when the verdict carries it, and independently of the skill outcome. `No registry match` and `No planning skill` never remove a profile, and a model registry gap never changes a skill binding. Never list an ordered fallback, a second model, or a second reasoning effort, and never write an alias for the pinned ID.
+
+**No model registry match.** With no binding, `Model` reads `No model registry match: <capability>` or `No model registry match: <capability> + High-assurance`, and `Reasoning effort` and `Runtime availability` read `n/a`. The base binding, the closest profile, and a lower reasoning effort are not substituted.
+
+**Runtime availability.** Beside a resolved profile, write `unavailable: <evidence>` only when local, read-only evidence proves the exact pair cannot be selected, and otherwise `unknown`. The model registry defines what counts as evidence. `available` is never written. An `unavailable` profile is still recommended exactly as bound.
+
+**Recommendations are advice.** A launch packet may repeat its boundary's model recommendation, but neither the recipe nor a packet claims that a model or reasoning effort was applied, enforced, or selected. Gauge configures no session.
 
 **No registry match.** The step keeps every field. `Skill` reads `No registry match: <missing capability>`; `Availability` is `n/a`; `Invocation` states that the MVP catalog cannot fully resolve the recipe; the packet is written for the capability so it is ready when a skill is supplied. The closest registry entry is not substituted.
 

@@ -5,7 +5,6 @@
 - Variant: none
 - Modifiers: High-assurance
 - Confidence: High
-- Budget: $4,000 all in
 
 ## Why this fits
 The route is known and no product decision is outstanding, so no interview is
@@ -74,9 +73,9 @@ dependencies.
 
 ## Implementation handoff
 - Capability: implementation
-- Model: claude-fable-5-1
+- Model: claude-opus-5
 - Reasoning effort: xhigh
-- Runtime availability: unknown
+- Runtime availability: unavailable: `claude --version` reports 2.1.250, below the 2.1.257 claude-fable-5-1 needs
 
 The implementation agent receives the path to step 1's handoff document. The
 model recommendation is advice for launching that session.

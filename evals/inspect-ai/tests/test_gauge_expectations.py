@@ -73,6 +73,15 @@ def _recipe(
     )
 
 
+HANDOFF = """
+## Implementation handoff
+- Capability: implementation
+- Model: claude-fable-5-1
+- Reasoning effort: xhigh
+- Runtime availability: {runtime}
+"""
+
+
 def _outcome(text: str, trajectory: Trajectory = GAUGE_RUN) -> Outcome:
     return Outcome(recipe=parse_recipe(text), trajectory=trajectory)
 
@@ -117,6 +126,17 @@ CONTROLS: dict[str, tuple[Any, Outcome, Outcome]] = {
         "Medium",
         _outcome(_recipe(confidence="Medium")),
         _outcome(_recipe(confidence="High")),
+    ),
+    "runtime_unavailable": (
+        ["implementation"],
+        _outcome(
+            _recipe(
+                extra=HANDOFF.format(
+                    runtime="unavailable: `maxEffortLevel` is `high` in .claude/settings.json"
+                )
+            )
+        ),
+        _outcome(_recipe(extra=HANDOFF.format(runtime="unknown"))),
     ),
 }
 

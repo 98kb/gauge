@@ -20,7 +20,7 @@ and no information.
 ## Resolved planning recipe
 
 ### Step 1 — Implement directly
-- Capability: implementation
+- Capability: context handoff
 - Skill: No planning skill
 - Dependencies: none
 - Availability: n/a

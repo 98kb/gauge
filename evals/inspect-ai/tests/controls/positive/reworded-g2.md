@@ -30,9 +30,13 @@ is one coherent run, which is what keeps this off G3.
 ## Resolved planning recipe
 
 ### 1. Elicit the three undecided choices
+- **Capability:** interactive elicitation with domain docs
 - **Skill:** grill-with-docs
 - **Dependencies:** grilling, domain-modeling
 - **Availability:** installed
+- **Model:** `claude-opus-5`
+- **Reasoning effort:** `high`
+- **Runtime availability:** unavailable (the same `maxEffortLevel` cap of `medium`, below `high`)
 - **Invocation:** `/grill-with-docs`
 - **Inputs:** the verbatim intent; `CONTEXT.md`; `docs/adr/`
 - **Expected output:** shared understanding, plus glossary entries and any ADRs
@@ -74,9 +78,13 @@ Stop and report if:
 ~~~
 
 ### 2. Write the implementation handoff
+- **Capability:** context handoff
 - **Skill:** handoff
 - **Dependencies:** none
 - **Availability:** installed
+- **Model:** `claude-sonnet-5`
+- **Reasoning effort:** `medium`
+- **Runtime availability:** unknown
 - **Invocation:** `/handoff spending limits, decisions settled`
 - **Inputs:** step 1's conversation and the records it left
 - **Expected output:** one handoff document in the temporary directory
@@ -118,6 +126,12 @@ Stop and report if:
 ~~~
 
 ## Implementation handoff
+- **Capability:** implementation
+- **Model:** `claude-opus-5`
+- **Reasoning effort:** `high`
+- **Runtime availability:** unavailable — `maxEffortLevel` is `medium` in
+  `/workspace/.claude/settings.json`, and no higher-precedence scope overrides it
+
 The implementation agent receives the path to step 2's handoff document.
 
 ## Escalate or re-Gauge if

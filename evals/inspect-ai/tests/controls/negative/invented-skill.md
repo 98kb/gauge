@@ -20,9 +20,13 @@ High-assurance rather than the topology.
 ## Resolved planning recipe
 
 ### Step 1 — Bounded context handoff
+- Capability: context handoff
 - Skill: context-packer
 - Dependencies: none
 - Availability: not detected
+- Model: No model registry match: context handoff + High-assurance
+- Reasoning effort: n/a
+- Runtime availability: n/a
 - Invocation: `/handoff token expiry change at the auth boundary`
 - Inputs: the verbatim intent and the auth module paths found in reconnaissance
 - Expected output: one handoff document in the temporary directory
@@ -68,7 +72,13 @@ Stop and report if:
 dependencies.
 
 ## Implementation handoff
-The implementation agent receives the path to step 1's handoff document.
+- Capability: implementation
+- Model: claude-fable-5-1
+- Reasoning effort: xhigh
+- Runtime availability: unknown
+
+The implementation agent receives the path to step 1's handoff document. The
+model recommendation is advice for launching that session.
 
 ## Escalate or re-Gauge if
 - reconnaissance during planning finds a second consumer of the token format

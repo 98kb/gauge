@@ -104,7 +104,7 @@ Choose G0 only when the change is all of:
 - free of material unresolved human decisions; and
 - likely to fit one implementation run.
 
-Template: `implementation launch packet`, with no planning skill. The packet carries the original intent, relevant constraints, the verification expectation, and escalation triggers.
+Template: `implementation`, with no planning skill: one direct implementation launch packet carrying the original intent, relevant constraints, the verification expectation, and escalation triggers.
 
 ### Assurance floor
 
@@ -145,7 +145,9 @@ A user who says "choose conventional defaults for me" receives explicit Delegate
 
 ## Capability vocabulary
 
-The templates above are written in provider-neutral capability names so a future registry can bind them without touching this file. The registry maps each name to a skill and its dependencies. `implementation` and `implementation sessions` in a template name the downstream boundary, not a capability; the recipe describes them under **Implementation handoff**.
+The templates above are written in provider-neutral capability names so a future registry can bind them without touching this file. Two registries bind each name independently: the planning registry to a skill and its dependencies, the model registry to one model profile. `implementation` is a capability like the rest. It names the G0 implementation step and, in G1 to G3, the downstream **Implementation handoff**; `implementation sessions` in a G3 template share that handoff's one profile.
+
+**Binding rule.** A capability's binding never depends on the skill selected for it, and a gap in one registry never changes the other's outcome. `High-assurance` is the only modifier that affects a binding: when the verdict carries it, each execution boundary resolves the capability's `High-assurance` model binding, and without one reports a model registry gap. It never falls back to the base binding. No other modifier changes either binding.
 
 | Capability | What the step must do |
 | --- | --- |
@@ -158,4 +160,4 @@ The templates above are written in provider-neutral capability names so a future
 | `navigated decision map` | Chart a destination whose route is too foggy for one session as a persistent map of decision tickets, resolved across sessions. |
 | `external research` | Resolve a fact from primary sources and report cited findings, without making the blocked decision. |
 | `design prototype` | Produce a throwaway runnable or visible artifact that answers a behaviour or appearance question. |
-| `implementation launch packet` | No planning skill. A direct packet for the implementation agent. |
+| `implementation` | Build the change. No planning skill: the G0 step's direct launch packet, or the artifact the Implementation handoff names. |

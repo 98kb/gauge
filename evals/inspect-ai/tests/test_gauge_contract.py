@@ -15,9 +15,13 @@ import pytest
 
 from skill_evals.gauge.contract import Evidence, check_recipe, parse_recipe
 from skill_evals.gauge.registry import (
+    MODEL_REGISTRY,
+    PLANNING_CAPABILITIES,
     PROHIBITED_AS_STEP,
     REGISTRY_SKILLS,
     REQUIRED_DEPENDENCIES,
+    ModelProfile,
+    parse_model_registry,
 )
 
 CONTROLS = Path(__file__).parent / "controls"
@@ -39,6 +43,21 @@ NEGATIVE_CONTROLS: dict[str, list[str]] = {
     "unnamed-registry-gap.md": ["contract/no-registry-match-names-capability"],
     "g0-still-binds-a-skill.md": ["contract/g0-no-planning-skill"],
     "cost-estimate.md": ["contract/no-estimates"],
+    # --- model profiles (ADR 0017) ---
+    "missing-model-fields.md": ["contract/model-fields"],
+    "handoff-missing-profile.md": ["contract/implementation-profile"],
+    "g0-step-not-implementation.md": ["contract/implementation-profile"],
+    "fallback-model-list.md": ["contract/single-profile"],
+    "unsupported-effort.md": ["contract/model-profile-registered"],
+    "substituted-model.md": ["contract/model-binding"],
+    "lowered-effort.md": ["contract/model-binding"],
+    "high-assurance-falls-back-to-base.md": ["contract/model-binding"],
+    "ha-gap-names-base-key.md": ["contract/model-binding"],
+    "skill-gap-erases-model.md": ["contract/model-binding"],
+    "reports-available.md": ["contract/runtime-availability"],
+    "unevidenced-unavailable.md": ["contract/runtime-evidence"],
+    "gap-carries-reasoning-effort.md": ["contract/model-binding"],
+    "relabelled-capability.md": ["contract/capability-matches-skill"],
 }
 
 #: No inventory was read, so nothing may be labelled `installed`.
@@ -81,6 +100,79 @@ def test_exclusions_are_read_from_the_production_reference() -> None:
     assert {"implement", "tdd", "code-review"} <= PROHIBITED_AS_STEP
 
 
+# --- model registry, parsed from the skill's own reference -------------------
+
+
+EFFORTS = frozenset({"low", "medium", "high", "xhigh", "max"})
+
+
+def test_model_profiles_are_read_from_the_production_reference() -> None:
+    assert MODEL_REGISTRY.profiles["opus-5-high"] == ModelProfile(
+        key="opus-5-high", model="claude-opus-5", effort="high", supported=EFFORTS
+    )
+    assert MODEL_REGISTRY.profiles["fable-5-1-max"].model == "claude-fable-5-1"
+    # Haiku 4.5 has no effort support, so it cannot form a profile.
+    assert not any("haiku" in p.model for p in MODEL_REGISTRY.profiles.values())
+
+
+def test_high_assurance_binds_its_own_row_and_never_the_base_one() -> None:
+    assert MODEL_REGISTRY.binding("implementation", high_assurance=False) == (
+        MODEL_REGISTRY.profiles["opus-5-high"]
+    )
+    assert MODEL_REGISTRY.binding("implementation", high_assurance=True) == (
+        MODEL_REGISTRY.profiles["fable-5-1-xhigh"]
+    )
+    # `unbound` is an intentional gap, even though a base binding exists.
+    assert MODEL_REGISTRY.binding("context handoff", high_assurance=False) is not None
+    assert MODEL_REGISTRY.binding("context handoff", high_assurance=True) is None
+    assert MODEL_REGISTRY.binding("threat modelling", high_assurance=False) is None
+
+
+def test_model_bindings_cover_exactly_the_planning_registry_capabilities() -> None:
+    """The two registries bind the same capability vocabulary; the planning
+    registry's old `implementation launch packet` key is now `implementation`."""
+    assert "implementation" in PLANNING_CAPABILITIES
+    assert "implementation launch packet" not in PLANNING_CAPABILITIES
+    assert {capability for capability, _ in MODEL_REGISTRY.bindings} == PLANNING_CAPABILITIES
+
+
+_MINI_REGISTRY = """\
+## Profiles
+
+| Profile | Provider | Model ID | Reasoning effort | Supported effort values |
+| --- | --- | --- | --- | --- |
+| `a-high` | Anthropic | `claude-a` | `{effort}` | `low`, `high` |
+
+## Bindings
+
+| Capability (routing model) | Base | `High-assurance` |
+| --- | --- | --- |
+| `implementation` | {base} | unbound |
+"""
+
+
+def test_a_well_formed_model_registry_parses() -> None:
+    registry = parse_model_registry(_MINI_REGISTRY.format(effort="high", base="`a-high`"))
+    assert registry.binding("implementation", high_assurance=False) == ModelProfile(
+        "a-high", "claude-a", "high", frozenset({"low", "high"})
+    )
+    assert registry.binding("implementation", high_assurance=True) is None
+
+
+@pytest.mark.parametrize(
+    "effort, base, match",
+    [
+        ("max", "`a-high`", "does not support"),
+        ("high", "`a-typo`", "unknown profile"),
+        ("high", "tbd", "neither a profile nor `unbound`"),
+    ],
+)
+def test_a_malformed_model_registry_is_rejected(effort: str, base: str, match: str) -> None:
+    """A typo must not silently become an intentional gap or an unsupported pair."""
+    with pytest.raises(ValueError, match=match):
+        parse_model_registry(_MINI_REGISTRY.format(effort=effort, base=base))
+
+
 # --- parsing ------------------------------------------------------------------
 
 
@@ -99,6 +191,53 @@ def test_g0_step_binds_no_planning_skill() -> None:
     assert recipe.topologies == ["G0"]
     assert recipe.steps[0].binds_no_planning_skill
     assert recipe.steps[0].skill is None
+
+
+def test_non_g0_boundaries_are_every_step_plus_the_implementation_handoff() -> None:
+    recipe = parse_recipe(_read("positive/canonical-g1.md"))
+    step, handoff = recipe.steps[0], recipe.handoff
+    assert handoff is not None
+    assert recipe.boundaries == [step, handoff]
+
+    assert step.capability == "context handoff"
+    assert step.model_gap_key == "context handoff + High-assurance"
+    assert (step.effort, step.runtime) == ("n/a", "n/a")
+
+    assert handoff.capability == "implementation"
+    assert (handoff.model, handoff.effort, handoff.runtime) == (
+        "claude-fable-5-1",
+        "xhigh",
+        "unknown",
+    )
+    assert handoff.model_gap_key is None
+
+
+def test_g0_carries_its_profile_on_its_only_step_and_has_no_handoff_boundary() -> None:
+    recipe = parse_recipe(_read("positive/canonical-g0.md"))
+    assert recipe.handoff is None
+    assert recipe.boundaries == recipe.steps
+    step = recipe.steps[0]
+    assert (step.capability, step.model, step.effort) == ("implementation", "claude-opus-5", "high")
+
+
+def test_runtime_evidence_is_parsed_apart_from_its_label() -> None:
+    recipe = parse_recipe(_read("positive/reworded-g2.md"))
+    assert recipe.handoff is not None
+    assert recipe.handoff.runtime == "unavailable"
+    assert "maxEffortLevel" in (recipe.handoff.runtime_evidence or "")
+    assert recipe.steps[1].runtime == "unknown"
+    assert recipe.steps[1].runtime_evidence is None
+
+
+def test_handoff_fields_do_not_bleed_into_the_last_step() -> None:
+    """A step block used to run to the next `###`, so the handoff section's
+    bullets would have filled in a step's missing model fields."""
+    recipe = parse_recipe(
+        "- Topology: G1 Handoff\n\n### Step 1\n- Skill: handoff\n\n"
+        "## Implementation handoff\n- Capability: implementation\n- Model: claude-opus-5\n"
+    )
+    assert "capability" not in recipe.steps[0].fields
+    assert recipe.handoff is not None and recipe.handoff.capability == "implementation"
 
 
 # --- positive controls: would a correct recipe pass? --------------------------
@@ -199,6 +338,34 @@ def test_quoting_the_humans_own_estimate_is_not_making_one() -> None:
     # ...but the same words with no such request behind them still fail.
     bare = {c.id: c for c in check_recipe(recipe, NO_INVENTORY)}
     assert not bare["contract/no-estimates"].passed
+
+
+def _g0_with(model: str, effort: str) -> dict[str, bool]:
+    recipe = parse_recipe(
+        "- Topology: G0 Direct\n\n### Step 1\n- Capability: implementation\n"
+        "- Skill: No planning skill\n"
+        f"- Model: {model}\n- Reasoning effort: {effort}\n- Runtime availability: unknown\n"
+    )
+    return {c.id: c.passed for c in check_recipe(recipe, NO_INVENTORY)}
+
+
+@pytest.mark.parametrize(
+    "model, effort, check_id, passes",
+    [
+        # One profile, however it is decorated, is not a fallback list...
+        ("`claude-opus-5` (Claude Opus 5)", "high (advisory)", "contract/single-profile", True),
+        # ...while any second model or effort is one.
+        ("claude-opus-5 or claude-sonnet-5", "high", "contract/single-profile", False),
+        ("claude-opus-5", "high, then medium", "contract/single-profile", False),
+        # A convenience alias is never a pinned profile ID.
+        ("opus", "high", "contract/model-profile-registered", False),
+        ("claude-opus-5", "high", "contract/model-profile-registered", True),
+    ],
+)
+def test_single_profile_and_registered_profile_from_both_sides(
+    model: str, effort: str, check_id: str, passes: bool
+) -> None:
+    assert _g0_with(model, effort)[check_id] is passes
 
 
 def test_a_packet_restating_the_verdict_is_not_a_second_topology() -> None:

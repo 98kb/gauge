@@ -44,6 +44,7 @@ def test_references_point_at_the_production_files_not_copies() -> None:
         "planning-registry.md",
         "recipe-contract.md",
         "evaluation-scenarios.md",
+        "model-registry.md",
     }
     for path in skill.references.values():
         assert GAUGE_SKILL in path.parents  # type: ignore[union-attr]

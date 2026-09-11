@@ -38,7 +38,7 @@ changed deliberately rather than drifting.
 ./run.sh check                    # offline: types, contracts, controls. No model, no cost.
 ./run.sh check:docker             # one whole sample through the sandbox, scripted model
 ./run.sh smoke --model <m>        # 3 cases
-./run.sh gauge --model <m>        # the full 14-case suite
+./run.sh gauge --model <m>        # the full 15-case suite
 ./run.sh view                     # Inspect's log viewer
 ./run.sh gate [log]               # apply gates.json
 ./run.sh score <log> <scorer>     # re-grade a recorded log
@@ -257,7 +257,8 @@ Append a line to
 
 Expectation keys: `topology`, `variant`, `binds`, `forbids`,
 `binds_no_planning_skill`, `no_registry_match`, `modifiers_include`,
-`availability`, `installation_section`, `gauge_invoked`, `confidence_at_most`.
+`availability`, `installation_section`, `gauge_invoked`, `confidence_at_most`,
+`runtime_unavailable`.
 
 **An expectation omitted is not asserted; an expectation present must assert.**
 `./run.sh check` enforces that before any model is called, and the errors say

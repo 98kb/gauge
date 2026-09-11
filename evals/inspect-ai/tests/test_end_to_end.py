@@ -119,6 +119,14 @@ def test_the_read_only_floor_recorded_real_evidence(sample) -> None:  # type: ig
     assert any("SKILL.md" in name for name in sample.store["skills_after"])
 
 
+def test_the_model_registry_is_served_without_weakening_the_floor(sample) -> None:  # type: ignore[no-untyped-def]
+    """The fifth reference is installed into the sandbox with the skill, and
+    the skills tree is still byte-identical before and after the run."""
+    served = [name for name in sample.store["skills_after"] if name.endswith("references/model-registry.md")]
+    assert served, sorted(sample.store["skills_after"])
+    assert sample.store["skills_before"] == sample.store["skills_after"]
+
+
 def test_semantic_grade_comes_from_the_grader_role(sample) -> None:  # type: ignore[no-untyped-def]
     score = _score(sample, "gauge_semantic_quality")
     assert score.value == 3.0

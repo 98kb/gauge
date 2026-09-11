@@ -9,7 +9,7 @@
 #   ./run.sh setup                     create the Python env (once)
 #   ./run.sh check                     offline validation; no model, no cost
 #   ./run.sh smoke   [inspect args]    3 cases
-#   ./run.sh gauge   [inspect args]    the full 14-case suite
+#   ./run.sh gauge   [inspect args]    the full 15-case suite
 #   ./run.sh score <log> <scorer>      re-grade a recorded .eval log
 #   ./run.sh gate    [log]             apply the quality gates
 #   ./run.sh view                      open the Inspect log viewer

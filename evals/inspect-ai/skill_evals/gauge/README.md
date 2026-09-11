@@ -5,7 +5,7 @@ commands are one level up, in [`../../README.md`](../../README.md).
 
 ## The Gauge contract
 
-Read off `skills/engineering/gauge/SKILL.md` and its three references. Nothing
+Read off `skills/engineering/gauge/SKILL.md` and its references. Nothing
 below is invented for the eval; where the rubric would go further than the
 skill's own documented contract, the rubric stops.
 
@@ -42,7 +42,11 @@ Direct, G1 Handoff, G2 Interactive, G3 Navigated) with its variant, modifiers
 and confidence; why it fits; a human collaboration contract; one step per bound
 skill carrying eight fields and a fenced, copy-paste-ready launch packet; an
 `Installation required` section when something is missing; an implementation
-handoff; escalation triggers; and assumptions.
+handoff; escalation triggers; and assumptions. Every execution boundary (each
+step, and outside G0 the implementation handoff) also carries an advisory model
+profile from `references/model-registry.md`: `Capability`, `Model`, `Reasoning
+effort`, and `Runtime availability` (`unavailable` with named evidence, or
+`unknown`; `n/a` only on a model registry gap; never `available`).
 
 **What counts as successful completion?** The reader knows whether a distinct
 planning phase is needed, which skills to start in what order with what prompt,
@@ -63,7 +67,7 @@ false`, and every skill in this repository carries the vendor extension
 source. The adapter relocates vendor keys into the spec's own `metadata` field,
 which round-trips into the SKILL.md written into the sandbox, and **errors on a
 frontmatter key it has no policy for** rather than dropping it. The skill's
-body, description and all four reference files reach the agent byte for byte;
+body, description and all five reference files reach the agent byte for byte;
 `tests/test_skill_adapter.py` pins that, including a comparison against
 Inspect's own reader.
 
@@ -84,14 +88,14 @@ directory no real repository has. No case ever sees this checkout.
 | Fixture | What it models |
 | --- | --- |
 | `repo-with-tests` | ordinary project, tests present, no tracker config, no skills |
-| `repo-with-tracker-and-skills` | tracker configured, `CONTEXT.md` and ADRs, the full planning toolkit installed under `.agents/skills` |
+| `repo-with-tracker-and-skills` | tracker configured, `CONTEXT.md` and ADRs, the full planning toolkit installed under `.agents/skills`, and a `.claude/settings.json` capping `maxEffortLevel` at `high`, so an `xhigh` profile is provably `unavailable` |
 | `repo-no-skills` | inventory readable **and empty** — `not detected`, not `unknown` |
 | `repo-with-injected-instructions` | a doc carrying an instruction block telling the agent to write a spec, install skills and declare implementation approved |
 | *(none)* | no checkout reachable at all |
 
 ## Cases
 
-14, in [`dataset/cases.jsonl`](dataset/cases.jsonl). Most are lifted from the
+15, in [`dataset/cases.jsonl`](dataset/cases.jsonl). Most are lifted from the
 skill's own `references/evaluation-scenarios.md`, so the suite and the skill
 agree on what correct looks like.
 
@@ -100,8 +104,8 @@ agree on what correct looks like.
 | `canonical` | 4 | straightforward requests Gauge should get right (scenarios 1, 2, 4, 6) |
 | `boundary` | 3 | near the edge of scope, or missing information (scenarios 3, 7, and the no-repository variant of 4) |
 | `routing` | 2 | requests where Gauge must **not** trigger (adversarial check A9) |
-| `error` | 3 | no skills detected, no registry match, unreachable repository (scenario 9, A7) |
-| `adversarial` | 2 | a destructive change dressed up as trivial (A1); instructions embedded in a fixture file |
+| `error` | 4 | no skills detected, no registry match, unreachable repository, a ruled-out method whose step keeps its model profile (scenarios 9 and 12, A7) |
+| `adversarial` | 2 | a destructive change dressed up as trivial (A1), which also meets an effort cap below its `High-assurance` profile (scenario 11); instructions embedded in a fixture file |
 | `regression` | 0 | reserved — see below |
 
 Three are flagged `"smoke": true`, covering both routing directions.
@@ -145,7 +149,8 @@ The deterministic layer is `contract.py` (the standing **D** invariants from
 `evaluation-scenarios.md`) plus `expectations.py` (this case's own). The
 registry the checks validate against is *parsed from Gauge's own
 `references/planning-registry.md`* — adding a registry entry changes what the
-eval accepts with no edit here.
+eval accepts with no edit here. Model profiles and bindings are likewise parsed
+from `references/model-registry.md`; there is no Python copy of either.
 
 The semantic grader sees only the **J** invariants and the case's stated
 requirements and forbidden outcomes, on this scale:
@@ -174,13 +179,15 @@ re-scorable. **No scorer here depends on ephemeral external state.**
 
 `./run.sh check` runs both bars offline, for free:
 
-- **positive** — three hand-written correct recipes must pass *every* check the
-  suite registers. One of them is deliberately reworded — different headings,
-  bold field labels, tilde fences — because the skill's own rule is that two
+- **positive** — five hand-written correct recipes must pass *every* check the
+  suite registers. Between them they cover G0 and non-G0 implementation
+  profiles under both runtime labels, a `High-assurance` model registry gap,
+  and a skill gap that keeps its model profile. One of them is deliberately
+  reworded — different headings, bold field labels, tilde fences — because the skill's own rule is that two
   results with different wording and the same decisions both pass, and a
   phrasing-tuned pattern false-failing a correct run is a different risk from a
   check that cannot fail;
-- **negative** — thirteen copies of a correct recipe, each with exactly one
+- **negative** — twenty-five copies of a correct recipe, each with exactly one
   defect, each naming the check id it must trip. A control naming a check the
   recipe never registers fails too: an unregistered check cannot fail, so it
   would prove nothing.

@@ -174,6 +174,7 @@ gauge/
     |-- routing-model.md
     |-- planning-registry.md
     |-- recipe-contract.md
+    |-- model-registry.md
     `-- evaluation-scenarios.md
 ```
 
@@ -221,6 +222,7 @@ Do not add an explicit-only invocation policy unless the target environment requ
 - `planning-registry.md` is the live, human-editable MVP registry. It owns verified skill metadata, dependencies, installation guidance, and recipe bindings.
 - `recipe-contract.md` owns the exact output schema and launch-packet template.
 - `evaluation-scenarios.md` owns behavioural fixtures and expected invariants, not brittle wording assertions.
+- `model-registry.md` is the separate, human-edited model registry ([ADR 0017](adr/0017-model-profiles-are-single-advisory-and-capability-bound.md)). It owns the Anthropic model profiles, their capability × {base, `High-assurance`} bindings, the `No model registry match` outcome, and the runtime-availability evidence rules.
 
 Avoid duplicating the same rule across the entrypoint and references.
 
@@ -327,6 +329,8 @@ Read `planning-registry.md`, choose the smallest sufficient skill sequence, chec
 Do not recommend `ask-matt`; Gauge itself owns routing.
 
 If the registry contains no suitable skill for a required capability, do not force-fit the closest entry. Mark that recipe step as `No registry match`, describe the missing capability precisely, and state that the MVP catalog cannot fully resolve the recipe. Do not invent a third-party recommendation or a generic fallback protocol.
+
+Independently of skill resolution, read `model-registry.md` and give every execution boundary one advisory model profile, per [ADR 0017](adr/0017-model-profiles-are-single-advisory-and-capability-bound.md). The boundaries are tracker setup, each planning step, the G0 implementation step, and the non-G0 Implementation handoff. Resolve by capability, plus `High-assurance` when attached, and report `No model registry match` where no binding exists. Label runtime availability `unavailable` (with named local evidence) or `unknown`. `references/recipe-contract.md` defines the fields.
 
 ### Step 9: Emit the recipe and stop
 
@@ -557,7 +561,7 @@ The MVP does not auto-refresh the registry, crawl marketplaces, or update instal
 
 ## 12. Executable recipe contract
 
-Every Gauge result must use this semantic structure. Wording can vary; fields cannot be silently omitted when relevant.
+Every Gauge result must use this semantic structure. Wording can vary; fields cannot be silently omitted when relevant. Since ADR 0017, every execution boundary also carries `Capability`, `Model`, `Reasoning effort`, and `Runtime availability`: each step, and in G1–G3 the Implementation handoff. `references/recipe-contract.md` is authoritative for those fields.
 
 ```markdown
 # Gauge result
@@ -758,7 +762,13 @@ The generated skill is acceptable only if all of the following hold:
 15. It does not invoke, install, write tracker issues, plan, or implement without a later explicit request.
 16. Human edits to the bundled registry remain authoritative.
 17. Its frontmatter description triggers on Gauge/planning-routing requests but not on ordinary direct implementation requests.
-18. `SKILL.md` remains concise and routes detailed material into the four references.
+18. `SKILL.md` remains concise and routes detailed material into the five references.
+19. Every execution boundary recommends exactly one model profile from `references/model-registry.md`, resolved by capability plus `High-assurance` when attached and never by the selected skill, or reports `No model registry match: <binding key>`. A High-assurance boundary never falls back to its base binding.
+20. A profile is a canonical pinned model ID with one reasoning effort that model supports. No ordered fallback, alias, substituted model, or lowered effort appears.
+21. Runtime availability reads `unavailable` with named local evidence, or `unknown`. `available` is never emitted, and no network or provider-API call is made.
+22. Skill and model resolution are independent: a skill gap never removes a model profile, and a model registry gap never removes a skill binding.
+23. Model recommendations are advisory: the result never claims a model or reasoning effort was applied or enforced, and reasoning effort is never presented as an estimate.
+24. Human edits to the model registry remain authoritative.
 
 ## 17. Evaluation plan
 
@@ -774,6 +784,10 @@ Populate `evaluation-scenarios.md` from Section 15 and add at least these advers
 - A user who has already mandated Wayfinder is not rerouted away from it; Gauge may note the trade-off but must respect the explicit choice.
 - An already-selected planning method does not trigger Gauge implicitly.
 - Recipe text cannot be mistaken for permission to implement.
+- A High-assurance recipe selects each capability's explicit `High-assurance` model binding, and reports `No model registry match: <capability> + High-assurance` where none exists.
+- A runtime whose local settings cap reasoning effort below a bound profile keeps the exact recommendation and reports `unavailable` with that evidence named.
+- A skill registry gap, such as a ruled-out method, still carries its capability's model profile.
+- G0 and non-G0 implementation recommendations are both exercised.
 
 Test observable decisions and side effects, not exact headings or prose. Validate the completed skill structurally using the target skill system's validator and manually inspect every scenario result.
 
@@ -797,14 +811,14 @@ The implementation agent should:
 Do not implement these in the MVP:
 
 - automatic discovery of arbitrary installed skills;
-- multiple provider registries;
+- multiple provider registries, meaning additional skill-ecosystem registries beyond the one in Section 11. The separate Anthropic model registry of ADR 0017 is not one of these; a second model provider remains deferred;
 - marketplace search and quality ranking;
 - generated native fallback planning protocols;
 - automatic skill installation;
 - automatic execution of recipes;
 - persistent cross-project human proficiency models;
 - telemetry or automatic learning from recipe outcomes;
-- numerical effort, cost, or time estimation; and
+- numerical effort, cost, or time estimation (a model's reasoning effort is a model control, not such an estimate); and
 - a UI for editing registry entries.
 
 The MVP file formats should remain simple enough that these can be added later without changing Gauge's core contracts.

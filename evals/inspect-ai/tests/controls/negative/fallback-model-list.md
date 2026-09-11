@@ -5,7 +5,6 @@
 - Variant: none
 - Modifiers: High-assurance
 - Confidence: High
-- Budget: $4,000 all in
 
 ## Why this fits
 The route is known and no product decision is outstanding, so no interview is
@@ -74,7 +73,7 @@ dependencies.
 
 ## Implementation handoff
 - Capability: implementation
-- Model: claude-fable-5-1
+- Model: claude-fable-5-1, falling back to claude-opus-5
 - Reasoning effort: xhigh
 - Runtime availability: unknown
 

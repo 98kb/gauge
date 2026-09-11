@@ -5,7 +5,6 @@
 - Variant: none
 - Modifiers: High-assurance
 - Confidence: High
-- Budget: $4,000 all in
 
 ## Why this fits
 The route is known and no product decision is outstanding, so no interview is
@@ -26,7 +25,7 @@ High-assurance rather than the topology.
 - Dependencies: none
 - Availability: not detected
 - Model: No model registry match: context handoff + High-assurance
-- Reasoning effort: n/a
+- Reasoning effort: high
 - Runtime availability: n/a
 - Invocation: `/handoff token expiry change at the auth boundary`
 - Inputs: the verbatim intent and the auth module paths found in reconnaissance

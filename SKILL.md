@@ -31,10 +31,11 @@ Work topology and collaboration posture are separate axes. Human expertise moves
 
 ## Workflow
 
-Three references carry the detail, each read at the step that needs it:
+Four references carry the detail, each read at the step that needs it:
 
 - [references/routing-model.md](references/routing-model.md): read before step 3. Owns the human-model rules, the knowledge-location table, the topology selection criteria, the assurance floor, and the modifier contracts.
 - [references/planning-registry.md](references/planning-registry.md): read at step 8. The authoritative, human-edited binding source: skill metadata, dependencies, availability rules, installation guidance, recipe bindings, and the `No registry match` outcome.
+- [references/model-registry.md](references/model-registry.md): read at step 8. The separate, human-edited model registry: Anthropic model profiles, their capability bindings, the `No model registry match` outcome, and the runtime-availability evidence rules.
 - [references/recipe-contract.md](references/recipe-contract.md): read at step 9. The output schema, launch-packet template, and confidence grades.
 
 [references/evaluation-scenarios.md](references/evaluation-scenarios.md) is for testing this skill, not for running it.
@@ -46,9 +47,9 @@ Three references carry the detail, each read at the step that needs it:
 5. **Ask only routing-critical questions.** Ask when an answer could change the topology, decision ownership, the need for Educational, whether delegation is safe, or whether the workflow must persist across sessions. One concise batch is usually enough. The full interview belongs to the planning skill the recipe will name; when the context already suffices, ask nothing. Done when every such unknown has an answer or a labelled assumption.
 6. **Select the dominant topology** with the routing model. Done when one topology, with its variant for G3, is named together with the condition that selected it.
 7. **Attach modifiers** that change agent behaviour for this recipe. A modifier that changes nothing is left off. Done when each attached modifier names the behaviour it changes and, where it is scoped, the domain it covers.
-8. **Resolve the recipe.** From the registry choose the smallest sufficient skill sequence, label each skill's availability from evidence in the current environment, expand dependencies, and write one launch packet per step. Gauge owns routing, so no routing skill appears as a step. Done when every step carries a bound skill, `No planning skill` for G0, or `No registry match`, plus an availability label and a packet.
+8. **Resolve the recipe.** From the planning registry choose the smallest sufficient skill sequence, label each skill's availability from evidence in the current environment, expand dependencies, and write one launch packet per step. Gauge owns routing, so no routing skill appears as a step. Separately, from the model registry, resolve one advisory model profile for every execution boundary. The boundaries are tracker setup, each planning step, the G0 implementation step, and the non-G0 Implementation handoff. Resolve by capability, plus `High-assurance` when attached, never by the chosen skill. Then label runtime availability from local, read-only evidence. Done when every step carries a bound skill, `No planning skill` for G0, or `No registry match`, plus an availability label and a packet. Every execution boundary must also carry a capability, a model profile or `No model registry match`, and a runtime-availability label; the recipe is not emitted until they all do.
 9. **Emit the recipe and stop.** Follow the recipe contract, including its confidence grades. Done when the result is emitted and no skill has been started.
 
 ## Stopping condition
 
-Gauge is finished when the reader knows: whether a distinct planning phase is needed; which skills to start, in what order, with what context and prompt; what role the human plays; what artifact each step produces; how that artifact reaches implementation; and which findings escalate or re-Gauge. A reader who would still have to invent a prompt, or decide how planning itself is conducted, has an incomplete recipe.
+Gauge is finished when the reader knows: whether a distinct planning phase is needed; which skills to start, in what order, with what context and prompt; which model and reasoning effort are recommended for each session, as advice; what role the human plays; what artifact each step produces; how that artifact reaches implementation; and which findings escalate or re-Gauge. A reader who would still have to invent a prompt, or decide how planning itself is conducted, has an incomplete recipe.

@@ -16,9 +16,11 @@ import re
 from dataclasses import dataclass, field
 
 from skill_evals.gauge.registry import (
+    MODEL_REGISTRY,
     PROHIBITED_AS_STEP,
     REGISTRY_SKILLS,
     REQUIRED_DEPENDENCIES,
+    SKILL_CAPABILITIES,
 )
 
 TOPOLOGY_CODES = ("G0", "G1", "G2", "G3")
@@ -75,6 +77,17 @@ STEP_FIELDS = (
     "next handoff",
 )
 
+#: Fields ADR 0017 requires on every execution boundary: each step, plus the
+#: non-G0 Implementation handoff.
+MODEL_FIELDS = ("capability", "model", "reasoning effort", "runtime availability")
+
+_MODEL_ID = re.compile(r"\bclaude-[a-z0-9][a-z0-9.-]*[a-z0-9]\b", re.I)
+_RUNTIME_LABEL = re.compile(r"^(unavailable|unknown|available|n/a)\b", re.I)
+#: Every effort value any registry model supports, read from the registry.
+_EFFORT_VALUES: frozenset[str] = frozenset().union(
+    *(profile.supported for profile in MODEL_REGISTRY.profiles.values())
+)
+
 
 @dataclass(frozen=True)
 class Check:
@@ -103,9 +116,82 @@ class Evidence:
 
 
 @dataclass
-class Step:
+class Boundary:
+    """An execution boundary: a point in a recipe where an agent session starts
+    (CONTEXT.md). Every step is one, and so is the non-G0 Implementation
+    handoff, which is not a step. Each carries one model profile."""
+
     heading: str
     fields: dict[str, str] = field(default_factory=dict)
+
+    def _model_field(self, name: str) -> str:
+        return _plain(self.fields.get(name, "")).strip().rstrip(".")
+
+    @property
+    def stated_model(self) -> str:
+        return self._model_field("model")
+
+    @property
+    def capability(self) -> str | None:
+        return self._model_field("capability").lower() or None
+
+    @property
+    def model_gap_key(self) -> str | None:
+        """The binding key a `No model registry match` names; "" when it names
+        none; None when the boundary is not a model registry gap."""
+        raw = self.stated_model
+        if not raw.lower().startswith("no model registry match"):
+            return None
+        _, _, key = raw.partition(":")
+        return " ".join(key.split())
+
+    @property
+    def model(self) -> str | None:
+        """The recommended model ID, or None on a gap or a missing field."""
+        raw = self.stated_model
+        if not raw or self.model_gap_key is not None:
+            return None
+        found = _MODEL_ID.search(raw)
+        return found.group(0).lower() if found else raw.split()[0].lower()
+
+    @property
+    def model_ids(self) -> frozenset[str]:
+        """Every model ID the Model field names; more than one is a fallback list."""
+        return frozenset(m.lower() for m in _MODEL_ID.findall(self.stated_model))
+
+    @property
+    def effort(self) -> str | None:
+        """The first reasoning-effort value, as stated."""
+        raw = self._model_field("reasoning effort").lower()
+        return raw.split()[0].strip(".,;:()") if raw else None
+
+    @property
+    def effort_values(self) -> frozenset[str]:
+        """Every registry reasoning-effort value the field names."""
+        words = re.findall(r"[a-z]+", self._model_field("reasoning effort").lower())
+        return frozenset(words) & _EFFORT_VALUES
+
+    @property
+    def runtime(self) -> str | None:
+        """The runtime-availability label, apart from any evidence after it."""
+        raw = self._model_field("runtime availability").lower()
+        if not raw:
+            return None
+        label = _RUNTIME_LABEL.match(raw)
+        return label.group(1) if label else raw
+
+    @property
+    def runtime_evidence(self) -> str | None:
+        raw = self._model_field("runtime availability")
+        label = _RUNTIME_LABEL.match(raw)
+        if not label:
+            return None
+        evidence = raw[label.end() :].strip().strip(":—–-()").strip()
+        return evidence or None
+
+
+@dataclass
+class Step(Boundary):
     launch_packet: str | None = None
 
     @property
@@ -151,6 +237,23 @@ class Recipe:
     modifiers: list[str] = field(default_factory=list)
     confidence: str | None = None
     steps: list[Step] = field(default_factory=list)
+    #: The non-G0 Implementation handoff, when it carries boundary fields. A
+    #: G0 recipe carries its profile on its only step instead.
+    handoff: Boundary | None = None
+
+    @property
+    def boundaries(self) -> list[Boundary]:
+        """Every execution boundary that carries a model profile."""
+        return [*self.steps, *([self.handoff] if self.handoff is not None else [])]
+
+    @property
+    def high_assurance(self) -> bool:
+        """Whether the verdict attaches High-assurance, which ADR 0017 makes the
+        only modifier that changes a model binding. Matched as the modifier's
+        name, so a scope note after it still counts."""
+        return any(
+            modifier.strip().lower().startswith("high-assurance") for modifier in self.modifiers
+        )
 
 
 def parse_recipe(text: str) -> Recipe:
@@ -173,6 +276,7 @@ def parse_recipe(text: str) -> Recipe:
         ]
 
     recipe.steps = _parse_steps(text)
+    recipe.handoff = _parse_handoff(text)
     return recipe
 
 
@@ -199,9 +303,22 @@ def check_recipe(recipe: Recipe, evidence: Evidence) -> list[Check]:
         checks.append(_check_registry_membership(bound))
         checks.append(_check_dependency_expansion(bound))
         checks.append(_check_availability_evidence(bound, evidence))
+        checks.append(_check_capability_matches_skill(bound))
 
     if recipe.topologies == ["G0"] and recipe.steps:
         checks.append(_check_g0_binds_no_planning_skill(recipe))
+
+    # --- model profiles (ADR 0017) ---
+    if len(recipe.topologies) == 1 and recipe.topologies[0] in TOPOLOGY_CODES and recipe.steps:
+        checks.append(_check_implementation_profile(recipe))
+
+    if recipe.boundaries:
+        checks.append(_check_model_fields(recipe))
+        checks.append(_check_single_profile(recipe))
+        checks.append(_check_model_profile_registered(recipe))
+        checks.append(_check_model_binding(recipe))
+        checks.append(_check_runtime_availability(recipe))
+        checks.append(_check_runtime_evidence(recipe))
 
     return checks
 
@@ -398,6 +515,202 @@ def _check_g0_binds_no_planning_skill(recipe: Recipe) -> Check:
     )
 
 
+def _check_implementation_profile(recipe: Recipe) -> Check:
+    """ADR 0017's one topology asymmetry: G0 carries the `implementation`
+    profile on its only step; G1-G3 carry it on the Implementation handoff."""
+    if recipe.topologies == ["G0"]:
+        wrong = [
+            f"{step.heading}: capability {step.capability!r}"
+            for step in recipe.steps
+            if step.capability != "implementation"
+        ]
+        return Check(
+            "contract/implementation-profile",
+            not wrong,
+            "the G0 step is the `implementation` boundary"
+            if not wrong
+            else "G0's step must carry capability `implementation`: " + "; ".join(wrong),
+        )
+    handoff = recipe.handoff
+    if handoff is None or handoff.capability != "implementation":
+        return Check(
+            "contract/implementation-profile",
+            False,
+            f"{recipe.topologies[0]}'s Implementation handoff carries no `implementation` "
+            "boundary: it needs Capability, Model, Reasoning effort and Runtime availability",
+        )
+    return Check(
+        "contract/implementation-profile",
+        True,
+        "the Implementation handoff is the `implementation` boundary",
+    )
+
+
+def _check_capability_matches_skill(bound: list[Step]) -> Check:
+    """A bound skill's step names the capability the planning registry binds it
+    to. The model binding is looked up by `Capability`, so a relabelled step
+    would otherwise pass that check with another capability's profile."""
+    mismatched = [
+        f"{step.heading}: {step.skill} provides `{SKILL_CAPABILITIES[step.skill]}`, "
+        f"but Capability reads {step.capability!r}"
+        for step in bound
+        if step.skill in SKILL_CAPABILITIES
+        and step.capability is not None
+        and step.capability != SKILL_CAPABILITIES[step.skill]
+    ]
+    return Check(
+        "contract/capability-matches-skill",
+        not mismatched,
+        "every bound skill's step names the capability the registry binds it to"
+        if not mismatched
+        else "; ".join(mismatched),
+    )
+
+
+def _check_model_fields(recipe: Recipe) -> Check:
+    missing = [
+        f"{boundary.heading}: missing {name}"
+        for boundary in recipe.boundaries
+        for name in MODEL_FIELDS
+        if name not in boundary.fields
+    ]
+    return Check(
+        "contract/model-fields",
+        not missing,
+        "every execution boundary carries all four model fields"
+        if not missing
+        else "; ".join(missing),
+    )
+
+
+def _check_single_profile(recipe: Recipe) -> Check:
+    """One model and one effort: an ordered fallback is a second of either."""
+    lists: list[str] = []
+    for boundary in recipe.boundaries:
+        if boundary.model_gap_key is not None:
+            continue
+        if len(boundary.model_ids) > 1:
+            lists.append(f"{boundary.heading}: models {sorted(boundary.model_ids)}")
+        if len(boundary.effort_values) > 1:
+            lists.append(
+                f"{boundary.heading}: reasoning efforts {sorted(boundary.effort_values)}"
+            )
+    return Check(
+        "contract/single-profile",
+        not lists,
+        "every boundary names one model and one reasoning effort"
+        if not lists
+        else "no fallback lists — " + "; ".join(lists),
+    )
+
+
+def _check_model_profile_registered(recipe: Recipe) -> Check:
+    """A pinned ID paired with a reasoning effort that model supports, as the
+    registry records it — never an alias, never an unsupported value."""
+    pairs = {(p.model, p.effort) for p in MODEL_REGISTRY.profiles.values()}
+    unknown = [
+        f"{boundary.heading}: {boundary.model} at {boundary.effort!r}"
+        for boundary in recipe.boundaries
+        if boundary.model is not None and (boundary.model, boundary.effort) not in pairs
+    ]
+    return Check(
+        "contract/model-profile-registered",
+        not unknown,
+        "every recommended model and reasoning effort is a model registry profile"
+        if not unknown
+        else "not a model registry profile: " + "; ".join(unknown),
+    )
+
+
+def _check_model_binding(recipe: Recipe) -> Check:
+    """Each boundary recommends exactly its capability's binding.
+
+    Catches a substituted model, a lowered reasoning effort, a High-assurance
+    boundary falling back to its base binding, a gap naming the wrong key or
+    carrying a reasoning effort, and a skill gap erasing a profile the
+    capability does have.
+    """
+    high_assurance = recipe.high_assurance
+    problems: list[str] = []
+    for boundary in recipe.boundaries:
+        capability = boundary.capability
+        if capability is None or "model" not in boundary.fields:
+            continue
+        key = f"{capability} + High-assurance" if high_assurance else capability
+        want = MODEL_REGISTRY.binding(capability, high_assurance=high_assurance)
+        stated = boundary.stated_model
+        if want is None:
+            if boundary.model_gap_key is None or _binding_key(boundary.model_gap_key) != _binding_key(key):
+                problems.append(
+                    f"{boundary.heading}: `{key}` is unbound, so Model must read "
+                    f"`No model registry match: {key}`; it reads {stated!r}"
+                )
+            elif boundary.effort != "n/a":
+                problems.append(
+                    f"{boundary.heading}: a model registry gap carries no reasoning "
+                    f"effort, so it must read `n/a`; it reads {boundary.effort!r}"
+                )
+        elif (boundary.model, boundary.effort) != (want.model, want.effort):
+            coupling = (
+                " — a skill outcome never removes a model profile"
+                if boundary.model_gap_key is not None
+                and isinstance(boundary, Step)
+                and (boundary.is_no_registry_match or boundary.binds_no_planning_skill)
+                else ""
+            )
+            problems.append(
+                f"{boundary.heading}: `{key}` binds {want.key} ({want.model} at "
+                f"{want.effort}); the recipe says {stated!r} at {boundary.effort!r}{coupling}"
+            )
+    return Check(
+        "contract/model-binding",
+        not problems,
+        "every boundary recommends its capability's model registry binding"
+        if not problems
+        else "; ".join(problems),
+    )
+
+
+def _check_runtime_availability(recipe: Recipe) -> Check:
+    bad: list[str] = []
+    for boundary in recipe.boundaries:
+        if "runtime availability" not in boundary.fields:
+            continue
+        gap = boundary.model_gap_key is not None
+        allowed = ("n/a",) if gap else ("unavailable", "unknown")
+        if boundary.runtime not in allowed:
+            bad.append(
+                f"{boundary.heading}: {boundary.runtime!r}, allowed "
+                + ("`n/a` on a model registry gap" if gap else "`unavailable` or `unknown`")
+            )
+    return Check(
+        "contract/runtime-availability",
+        not bad,
+        "every runtime label is `unavailable`, `unknown`, or `n/a` on a gap; never `available`"
+        if not bad
+        else "; ".join(bad),
+    )
+
+
+def _check_runtime_evidence(recipe: Recipe) -> Check:
+    unevidenced = [
+        boundary.heading
+        for boundary in recipe.boundaries
+        if boundary.runtime == "unavailable" and not boundary.runtime_evidence
+    ]
+    return Check(
+        "contract/runtime-evidence",
+        not unevidenced,
+        "every `unavailable` names its local evidence"
+        if not unevidenced
+        else f"`unavailable` without named evidence: {', '.join(unevidenced)}",
+    )
+
+
+def _binding_key(text: str) -> str:
+    return re.sub(r"\s*\+\s*", " + ", " ".join(text.lower().split()))
+
+
 # --- parsing helpers ----------------------------------------------------------
 
 
@@ -454,14 +767,8 @@ def _parse_steps(text: str) -> list[Step]:
     heading text, so a differently-worded heading still grades.
     """
     lines = text.splitlines()
-    starts = [
-        i
-        for i, line in enumerate(lines)
-        if line.startswith("###") and not line.startswith("####")
-    ]
     steps: list[Step] = []
-    for position, start in enumerate(starts):
-        end = starts[position + 1] if position + 1 < len(starts) else len(lines)
+    for start, end in _sections(lines, level=3):
         block = lines[start:end]
         fields = _parse_fields(block)
         if "skill" not in fields:
@@ -476,6 +783,38 @@ def _parse_steps(text: str) -> list[Step]:
     return steps
 
 
+def _parse_handoff(text: str) -> Boundary | None:
+    """The first `##` section that carries a `Capability:` field but no skill.
+
+    Keyed off the field rather than the heading text, like steps are.
+    """
+    lines = text.splitlines()
+    for start, end in _sections(lines, level=2):
+        fields = _parse_fields(lines[start:end])
+        if "capability" in fields and "skill" not in fields:
+            return Boundary(heading=_plain(lines[start].lstrip("# ")).strip(), fields=fields)
+    return None
+
+
+def _sections(lines: list[str], *, level: int) -> list[tuple[int, int]]:
+    """(start, end) of each heading at `level`, ending at the next heading of
+    level 3 or above, so a step never runs on into the section after it."""
+    inside = False
+    headings: list[tuple[int, int]] = []
+    for index, line in enumerate(lines):
+        if _FENCE.match(line):
+            inside = not inside
+            continue
+        match = re.match(r"^(#{1,3})\s", line)
+        if not inside and match:
+            headings.append((index, len(match.group(1))))
+    return [
+        (start, next((i for i, _ in headings if i > start), len(lines)))
+        for start, depth in headings
+        if depth == level
+    ]
+
+
 def _parse_fields(block: list[str]) -> dict[str, str]:
     fields: dict[str, str] = {}
     inside_fence = False
@@ -487,7 +826,7 @@ def _parse_fields(block: list[str]) -> dict[str, str]:
             continue
         label, sep, value = _plain(line).lstrip("-* \t").partition(":")
         key = label.strip().lower()
-        if sep and key in STEP_FIELDS and key not in fields:
+        if sep and (key in STEP_FIELDS or key in MODEL_FIELDS) and key not in fields:
             fields[key] = value.strip()
     return fields
 

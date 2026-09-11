@@ -5,7 +5,7 @@
 Pre-planning engagement and routing skill for AI-native software engineering.
 
 [![Skills](https://img.shields.io/badge/skills-98kb%2Fgauge-blue?style=flat-square)](https://github.com/98kb/gauge)
-[![Inspect AI](https://img.shields.io/badge/evals-Inspect%20AI%20(14%20scenarios)-success?style=flat-square)](evals/inspect-ai/README.md)
+[![Inspect AI](https://img.shields.io/badge/evals-Inspect%20AI%20(15%20scenarios)-success?style=flat-square)](evals/inspect-ai/README.md)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](https://opensource.org/licenses/MIT)
 
 ---
@@ -19,7 +19,7 @@ Software engineering agents suffer from two mirrored failure modes:
 
 > *"What exact process should produce the plan for this intent, or should a separate planning step be skipped?"*
 
-The output is an executable **Planning Recipe**: a base topology (`G0`–`G3`), behavioral modifiers, resolved skill bindings, and copy-paste-ready **launch packets** with strict execution boundaries.
+The output is an executable **Planning Recipe**: a base topology (`G0`–`G3`), behavioral modifiers, resolved skill bindings, an advisory model and reasoning effort for every agent session, and copy-paste-ready **launch packets** with strict execution boundaries.
 
 ---
 
@@ -62,7 +62,7 @@ Topology codes define workflow structure and persistence requirements—**not** 
 
 | Code | Topology | Contract | When to Use | Typical Pipeline |
 | :--- | :--- | :--- | :--- | :--- |
-| **`G0`** | **Direct** | Skip planning. Hand intent and guardrails straight to implementation. | Bounded, conventional fixes with obvious verification seams. | `Implementation launch packet` |
+| **`G0`** | **Direct** | Skip planning. Hand intent and guardrails straight to implementation. | Bounded, conventional fixes with obvious verification seams. | `implementation` (direct launch packet) |
 | **`G1`** | **Handoff** | Produce a bounded context package without an interactive interview. | Settled decisions; context is discoverable in repo/docs; fits one session. | `context handoff` → `implementation` |
 | **`G2`** | **Interactive** | Elicit human judgement before generating an implementation handoff. | Domain decisions, trade-offs, permission models, or learning goals. | `interactive elicitation` → `context handoff` → `implementation` |
 | **`G3`** | **Navigated** | Preserve decisions and decomposition across multiple persistent sessions. | Multi-session builds. Split into **G3-A** (route decided) or **G3-B** (route foggy). | `decision map` → `specification` → `tickets` → `sessions` |
@@ -112,8 +112,12 @@ and invitation expiry policies require human product decisions.
 ## Resolved planning recipe
 
 ### Step 1 — Elicit authorization semantics
+- Capability: interactive elicitation
 - Skill: grill-me
 - Availability: installed
+- Model: claude-fable-5-1
+- Reasoning effort: high
+- Runtime availability: unknown
 - Invocation: /grill-me
 - Inputs: Intent and src/auth/roles.ts
 - Expected output: docs/decisions/0012-invite-rbac.md
@@ -128,6 +132,11 @@ Output: docs/decisions/0012-invite-rbac.md
 Boundary: Plan; do not implement.
 
 ## Implementation handoff
+- Capability: implementation
+- Model: claude-fable-5-1
+- Reasoning effort: xhigh
+- Runtime availability: unavailable: maxEffortLevel "high" in .claude/settings.json
+
 Implementation agent consumes docs/decisions/0012-invite-rbac.md as a G1 run.
 
 ## Escalate or re-Gauge if
@@ -154,11 +163,15 @@ While Matt Pocock's skills form our initial baseline, **Gauge is designed to be 
 
 Contributions and proposed bindings are welcome in [`references/planning-registry.md`](references/planning-registry.md).
 
+### Model Registry
+
+A separate, human-edited [`references/model-registry.md`](references/model-registry.md) recommends one **model profile** per agent session: a pinned Anthropic model ID plus one reasoning-effort value it supports (for example `claude-opus-5` at `high`). Profiles bind to capabilities, never to skills. `High-assurance` recipes use their own explicit bindings, and an unbound row reports `No model registry match` instead of falling back. Recommendations are advice. Gauge reports runtime availability as `unavailable` only when local settings prove the pair cannot run, and as `unknown` otherwise. Reasoning effort is a model control, never an estimate of time or cost.
+
 ---
 
 ## Evaluation & Rigor
 
-Gauge's routing logic is deterministically and behaviorally benchmarked across 14 scenarios using the UK AI Safety Institute's [Inspect AI](https://inspect.aisi.org.uk/) framework:
+Gauge's routing logic is deterministically and behaviorally benchmarked across 15 scenarios using the UK AI Safety Institute's [Inspect AI](https://inspect.aisi.org.uk/) framework:
 
 - **Deterministic checks:** Schema adherence, absence of arbitrary complexity scores, rigid non-execution bounds (`Plan; do not implement`).
 - **LLM-judged rubrics:** Routing accuracy, appropriate human modeling without stereotyping, and leak prevention.
@@ -173,6 +186,7 @@ See [`evals/inspect-ai/README.md`](evals/inspect-ai/README.md) and [`docs/INSPEC
 - [Routing Model (`references/routing-model.md`)](references/routing-model.md)
 - [Planning Registry (`references/planning-registry.md`)](references/planning-registry.md)
 - [Recipe Contract (`references/recipe-contract.md`)](references/recipe-contract.md)
+- [Model Registry (`references/model-registry.md`)](references/model-registry.md)
 - [Architecture & ADRs (`docs/adr/`)](docs/adr/)
 
 ---

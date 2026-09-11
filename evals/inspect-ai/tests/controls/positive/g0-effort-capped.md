@@ -26,7 +26,8 @@ and no information.
 - Availability: n/a
 - Model: claude-opus-5
 - Reasoning effort: high
-- Runtime availability: unknown
+- Runtime availability: unavailable: `maxEffortLevel` is `medium` in `/workspace/.claude/settings.json`,
+  below `high`; no local or managed settings override it
 - Invocation: paste the packet below into an implementation agent
 - Inputs: the verbatim intent
 - Expected output: the renamed label and a passing test run

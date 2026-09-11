@@ -19,7 +19,7 @@ The authoritative binding source for Gauge: which skill delivers each capability
 | `navigated decision map` | `wayfinder` | `grilling`, `domain-modeling`; `research` and `prototype` as ticket types require | `tracker setup` done once in the repository |
 | `external research` | `research` | none | none |
 | `design prototype` | `prototype` | none | a runnable project, for UI variants |
-| `implementation launch packet` | no planning skill | none | none |
+| `implementation` | no planning skill | none | none |
 
 A dependency is expanded every time its entry point is bound: a recipe that names `grill-me` lists `grilling`; one that names `grill-with-docs` lists `grilling` and `domain-modeling`. When `to-spec`, `to-tickets`, or `wayfinder` is bound and the repository shows no tracker configuration (no `docs/agents/issue-tracker.md` or equivalent written by the setup skill), the recipe gains a `tracker setup` step before them. Setup is a prerequisite, never a planning step.
 

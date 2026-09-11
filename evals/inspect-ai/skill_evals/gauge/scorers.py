@@ -347,7 +347,10 @@ It must also hold that:
 - any questions asked are routing-critical, and the chosen planning skill's own
   interview has not been begun;
 - nothing in the result reads as permission to implement, install, or write to
-  a tracker.
+  a tracker;
+- model recommendations read as advice: nothing claims a model or reasoning
+  effort was applied, enforced or selected, and reasoning effort is never
+  presented as a measure of work, time or cost.
 
 Scale:
 {scale}

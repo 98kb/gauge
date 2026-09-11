@@ -21,10 +21,15 @@ Every scenario also carries the standing invariants below. Each invariant is mar
 - **D** A step binding `grill-me` lists `grilling`; a step binding `grill-with-docs` lists `grilling` and `domain-modeling`.
 - **D** No step's availability reads `installed` unless the transcript shows the inventory evidence for it; `unknown` is never rewritten as `not installed`.
 - **D** No file created, no tracker issue opened, no skill installed, no registry edited, no planning or implementation skill invoked during the run.
+- **D** Every execution boundary carries `Capability`, `Model`, `Reasoning effort`, and `Runtime availability`: every step, and outside G0 the **Implementation handoff** with capability `implementation`. A G0 recipe carries them on its one `implementation` step.
+- **D** Each boundary names exactly one model and one reasoning effort, the model registry's profile for its capability, or for its capability plus `High-assurance` when the verdict carries that modifier. No ordered fallback, no alias, no reasoning effort the model does not support. With no binding it reads `No model registry match: <capability>` or `No model registry match: <capability> + High-assurance`, never the base binding.
+- **D** Runtime availability is `unavailable` with its local evidence named, or `unknown`, and `n/a` only on a model registry gap. It is never `available`. An `unavailable` boundary keeps its exact profile.
+- **D** Skill and model resolution are independent: a step reading `No registry match` or `No planning skill` still carries its capability's profile.
 - **J** The result is a recipe: no substantive product, architecture, or implementation plan, and no task decomposition of the intended build.
 - **J** The human is described only through task-relevant, narrowly phrased assumptions; no permanent expert or novice label; explicit human facts are kept apart from labelled inference.
 - **J** Questions asked, if any, are routing-critical; the selected planning skill's interview is not begun.
 - **J** Nothing in the result reads as permission to implement, install, or write to a tracker.
+- **J** Model recommendations read as advice. Nothing claims a model or reasoning effort was applied, enforced, or selected, and reasoning effort is never presented as a measure of work, time, or cost.
 
 ## Behavioural fixtures
 
@@ -32,15 +37,15 @@ Every scenario also carries the standing invariants below. Each invariant is mar
 
 - **Given:** a repository with tests. Intent: rename a local UI label. No compatibility effect.
 - **Human:** familiar with the repository; no learning goal stated.
-- **Expect:** G0 Direct; `Skill: No planning skill`; one implementation packet carrying the verbatim intent, the verification expectation (the existing tests), and escalation triggers; Exception-only is the normal modifier.
+- **Expect:** G0 Direct; `Skill: No planning skill` on the `implementation` step, which carries that capability's model profile; one implementation packet carrying the verbatim intent, the verification expectation (the existing tests), and escalation triggers; Exception-only is the normal modifier.
 - **Must not:** insert a handoff or spec step; ask any question.
 
 ### 2. Small but consequential change
 
 - **Given:** a repository. Intent: change token-expiry handling at an authentication boundary. Route known; no product choice missing.
 - **Human:** owns the codebase; can review auth code.
-- **Expect:** G1 Handoff plus High-assurance, binding `handoff`; the packet demands failure analysis, verification seams, and rollback treatment in the eventual plan.
-- **Must not:** G0; G3 on grounds of risk alone.
+- **Expect:** G1 Handoff plus High-assurance, binding `handoff`; the packet demands failure analysis, verification seams, and rollback treatment in the eventual plan. Every boundary, the Implementation handoff included, resolves its capability's `High-assurance` model binding, and a capability unbound for High-assurance reads `No model registry match: <capability> + High-assurance` while its skill stays bound.
+- **Must not:** G0; G3 on grounds of risk alone; fall back to a capability's base model binding.
 
 ### 3. Clear feature, one implementation run
 
@@ -91,6 +96,18 @@ Every scenario also carries the standing invariants below. Each invariant is mar
 - **Given:** one intent run twice. Run A: the human says they review this area routinely and want interruptions only on named exceptions. Run B: the human says they want to understand the area before approving and to own the choices in it.
 - **Expect:** the same topology in both runs; Run A carries Exception-only or sparse checkpoints; Run B carries Educational, stronger evidence, or Human-decision in the named area.
 - **Must not:** change the topology on experience alone; label either human.
+
+### 11. Runtime cannot honour a profile
+
+- **Given:** a repository whose `.claude/settings.json` sets `maxEffortLevel` below the reasoning effort of at least one boundary's bound profile, with no local or managed settings overriding it.
+- **Expect:** that boundary keeps its exact bound model and reasoning effort, with `Runtime availability: unavailable` naming the setting and the file. Boundaries the cap does not reach read `unknown`.
+- **Must not:** lower the reasoning effort or switch the model to fit; report `available` anywhere; turn the mismatch into a model registry gap or `n/a`.
+
+### 12. Method ruled out
+
+- **Given:** scenario 4 in a repository, except that the human rules out `grill-me` and `grill-with-docs`.
+- **Expect:** G2 Interactive. The interview step reads `No registry match: interactive elicitation with domain docs` and still carries that capability's model profile; `handoff` is still bound for the next step.
+- **Must not:** substitute another skill for the ruled-out ones; drop the model profile because the skill is missing.
 
 ## Adversarial checks
 
